@@ -1,0 +1,138 @@
+import os
+import platform
+import customtkinter as ctk
+from tkinter import messagebox
+
+
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("green") # Цветовая гамма (можно поменять на "blue" или "dark-blue")
+
+class CleanerApp(ctk.CTk):
+    def __init__(self):
+        super().__init__()
+  
+        self.title("Clean Master")
+        self.geometry("600x500")
+        self.resizable(False, False)
+
+      
+        self.label_title = ctk.CTkLabel(self, text="🧹 Утилита очистки диска", font=("Arial", 24, "bold"))
+        self.label_title.pack(pady=20)
+
+    
+        self.log_box = ctk.CTkTextbox(self, width=550, height=250, font=("Consolas", 12))
+        self.log_box.pack(pady=10)
+        self.log_box.insert("0.0", "Программа готова к работе. Нажми кнопку ниже, чтобы начать очистку.\n")
+        self.log_box.configure(state="disabled") # Запрещаем редактировать вручную
+
+  
+        self.btn_clean = ctk.CTkButton(self, text="🚀 Начать очистку", font=("Arial", 18), command=self.run_clean, height=50, width=250)
+        self.btn_clean.pack(pady=20)
+
+    def log(self, message):
+        """Функция для добавления текста в лог-окно"""
+        self.log_box.configure(state="normal")
+        self.log_box.insert("end", message + "\n")
+        self.log_box.see("end") # Автоскролл вниз
+        self.log_box.configure(state="disabled")
+        self.update()
+
+    def clean_temp(self):
+        if platform.system() == "Windows":
+            folders = [os.environ.get('TEMP'), "C:\\Windows\\Temp", "C:\\Windows\\Prefetch"]
+        else:
+            folders = ["/tmp"]
+
+        total_size = 0
+        deleted_files = 0
+
+        self.log("--- Очистка временных файлов ---")
+        
+        for folder in folders:
+            if not folder or not os.path.exists(folder):
+                continue
+                
+            for root, dirs, files in os.walk(folder):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    try:
+                        size = os.path.getsize(file_path)
+                        os.remove(file_path)
+                        total_size += size
+                        deleted_files += 1
+                    except Exception:
+                        pass
+            
+      
+            for root, dirs, files in os.walk(folder, topdown=False):
+                for dir_name in dirs:
+                    dir_path = os.path.join(root, dir_name)
+                    try:
+                        if not os.listdir(dir_path):
+                            os.rmdir(dir_path)
+                    except Exception:
+                        pass
+                        
+        self.log(f"Удалено файлов: {deleted_files}")
+        self.log(f"Освобождено места: {total_size / (1024 * 1024):.2f} МБ\n")
+
+    def clean_cache(self):
+        self.log("--- Очистка кэша браузеров ---")
+        
+        if platform.system() == "Windows":
+            local_appdata = os.environ.get('LOCALAPPDATA')
+            if not local_appdata:
+                self.log("Не удалось найти папку LocalAppData.")
+                return
+
+            cache_folders = [
+                os.path.join(local_appdata, "Google", "Chrome", "User Data", "Default", "Cache"),
+                os.path.join(local_appdata, "Microsoft", "Edge", "User Data", "Default", "Cache"),
+                os.path.join(local_appdata, "Microsoft", "Windows", "Explorer")
+            ]
+
+            total_size = 0
+            deleted_files = 0
+
+            for folder in cache_folders:
+                if os.path.exists(folder):
+                    self.log(f"Сканирую: {os.path.basename(folder)}")
+                    for root, dirs, files in os.walk(folder):
+                        for file in files:
+                            file_path = os.path.join(root, file)
+                            try:
+                                size = os.path.getsize(file_path)
+                                os.remove(file_path)
+                                total_size += size
+                                deleted_files += 1
+                            except Exception:
+                                pass
+
+            self.log(f"Удалено файлов кэша: {deleted_files}")
+            self.log(f"Освобождено места (кэш): {total_size / (1024 * 1024):.2f} МБ\n")
+        else:
+            self.log("Очистка кэша браузеров реализована только для Windows.")
+
+    def run_clean(self):
+        """Запуск очистки по нажатию кнопки"""
+        self.btn_clean.configure(state="disabled", text="Очистка...")
+        self.log_box.configure(state="normal")
+        self.log_box.delete("0.0", "end") # Очищаем старый лог
+        self.log_box.configure(state="disabled")
+        
+        try:
+            self.clean_temp()
+            self.clean_cache()
+            self.log("✅ ГОТОВО! Мусор удален.")
+            
+        
+            messagebox.showinfo("Успех", "Очистка завершена! Мусор удален.")
+        except Exception as e:
+            self.log(f"❌ Ошибка: {e}")
+            messagebox.showerror("Ошибка", f"Произошла ошибка: {e}")
+        finally:
+            self.btn_clean.configure(state="normal", text="🚀 Начать очистку")
+
+if __name__ == "__main__":
+    app = CleanerApp()
+    app.mainloop()
